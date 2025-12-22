@@ -1,0 +1,321 @@
+version: "3.8"
+
+# LMSilo - Local AI Suite
+# Single image per tool with command overrides for worker processes
+
+services:
+  # Shared Infrastructure
+  postgres:
+    image: postgres:16-alpine
+    container_name: lmsilo-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: lmsilo
+      POSTGRES_PASSWORD: lmsilo_password
+      POSTGRES_DB: lmsilo
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U lmsilo" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: lmsilo-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # LMSilo Portal (Landing Page)
+  portal:
+    build:
+      context: ./portal
+      dockerfile: Dockerfile
+    container_name: lmsilo-portal
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - locate
+      - transcribe
+      - translate
+
+  # Locate (Image Geolocation)
+  locate:
+    build:
+      context: ./locate
+      dockerfile: Dockerfile
+    container_name: lmsilo-locate
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://lmsilo:lmsilo_password@postgres:5432/lmsilo
+      - REDIS_URL=redis://redis:6379/0
+      - HF_HOME=/app/huggingface
+      - HF_TOKEN=${HF_TOKEN:-}
+      - DEVICE=${DEVICE:-auto}
+    volumes:
+      - locate_uploads:/app/uploads
+      - locate_hf_cache:/app/huggingface
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Uncomment for GPU support
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+  locate-worker:
+    build:
+      context: ./locate
+      dockerfile: Dockerfile
+    container_name: lmsilo-locate-worker
+    restart: unless-stopped
+    command: celery -A backend.workers.celery_app worker -Q locate -c 1 --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://lmsilo:lmsilo_password@postgres:5432/lmsilo
+      - REDIS_URL=redis://redis:6379/0
+      - HF_HOME=/app/huggingface
+      - HF_TOKEN=${HF_TOKEN:-}
+      - DEVICE=${DEVICE:-auto}
+    volumes:
+      - locate_uploads:/app/uploads
+      - locate_hf_cache:/app/huggingface
+    depends_on:
+      - locate
+    # Uncomment for GPU support
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+    # Transcribe (Speech-to-Text)
+  transcribe:
+    build:
+      context: ./transcribe
+      dockerfile: Dockerfile
+    container_name: lmsilo-transcribe
+    restart: unless-stopped
+    ports:
+      - "8082:80"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://lmsilo:lmsilo_password@postgres:5432/lmsilo
+      - REDIS_URL=redis://redis:6379/0
+      - UPLOAD_DIR=/app/uploads
+      - OUTPUT_DIR=/app/outputs
+      - MODEL_DIR=/app/models
+      - HF_HOME=/app/huggingface
+      - HF_TOKEN=${HF_TOKEN:-}
+      - DEVICE=${DEVICE:-auto}
+      - COMPUTE_TYPE=${COMPUTE_TYPE:-auto}
+    volumes:
+      - transcribe_uploads:/app/uploads
+      - transcribe_outputs:/app/outputs
+      - transcribe_models:/app/models
+      - transcribe_hf_cache:/app/huggingface
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Uncomment for GPU support
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+  transcribe-worker-stt:
+    build:
+      context: ./transcribe
+      dockerfile: Dockerfile
+    container_name: lmsilo-transcribe-worker-stt
+    restart: unless-stopped
+    command: celery -A workers.celery_app worker -Q stt -c 1 --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://lmsilo:lmsilo_password@postgres:5432/lmsilo
+      - REDIS_URL=redis://redis:6379/0
+      - UPLOAD_DIR=/app/uploads
+      - OUTPUT_DIR=/app/outputs
+      - MODEL_DIR=/app/models
+      - HF_HOME=/app/huggingface
+      - HF_TOKEN=${HF_TOKEN:-}
+      - DEVICE=${DEVICE:-cuda}
+      - COMPUTE_TYPE=${COMPUTE_TYPE:-float16}
+    volumes:
+      - transcribe_uploads:/app/uploads
+      - transcribe_outputs:/app/outputs
+      - transcribe_models:/app/models
+      - transcribe_hf_cache:/app/huggingface
+    depends_on:
+      - transcribe
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+
+  transcribe-worker-diarization:
+    build:
+      context: ./transcribe
+      dockerfile: Dockerfile
+    container_name: lmsilo-transcribe-worker-diarization
+    restart: unless-stopped
+    command: celery -A workers.celery_app worker -Q diarization -c 1 --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://lmsilo:lmsilo_password@postgres:5432/lmsilo
+      - REDIS_URL=redis://redis:6379/0
+      - UPLOAD_DIR=/app/uploads
+      - OUTPUT_DIR=/app/outputs
+      - MODEL_DIR=/app/models
+      - HF_HOME=/app/huggingface
+      - HF_TOKEN=${HF_TOKEN:-}
+      - DEVICE=${DEVICE:-cuda}
+    volumes:
+      - transcribe_uploads:/app/uploads
+      - transcribe_outputs:/app/outputs
+      - transcribe_models:/app/models
+      - transcribe_hf_cache:/app/huggingface
+    depends_on:
+      - transcribe
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+
+  transcribe-worker-tts:
+    build:
+      context: ./transcribe
+      dockerfile: Dockerfile
+    container_name: lmsilo-transcribe-worker-tts
+    restart: unless-stopped
+    command: celery -A workers.celery_app worker -Q tts,sync -c 1 --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://lmsilo:lmsilo_password@postgres:5432/lmsilo
+      - REDIS_URL=redis://redis:6379/0
+      - UPLOAD_DIR=/app/uploads
+      - OUTPUT_DIR=/app/outputs
+      - MODEL_DIR=/app/models
+      - HF_HOME=/app/huggingface
+      - HF_TOKEN=${HF_TOKEN:-}
+      - DEVICE=${DEVICE:-cuda}
+    volumes:
+      - transcribe_uploads:/app/uploads
+      - transcribe_outputs:/app/outputs
+      - transcribe_models:/app/models
+      - transcribe_hf_cache:/app/huggingface
+    depends_on:
+      - transcribe
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+
+  # Translate (AI Translation)
+  translate:
+    build:
+      context: ./translate
+      dockerfile: Dockerfile
+    container_name: lmsilo-translate
+    restart: unless-stopped
+    ports:
+      - "8083:80"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://lmsilo:lmsilo_password@postgres:5432/lmsilo
+      - REDIS_URL=redis://redis:6379/0
+      - HF_HOME=/app/huggingface
+      - HF_TOKEN=${HF_TOKEN:-}
+      - DEVICE=${DEVICE:-auto}
+    volumes:
+      - translate_uploads:/app/uploads
+      - translate_hf_cache:/app/huggingface
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Uncomment for GPU support
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+  translate-worker:
+    build:
+      context: ./translate
+      dockerfile: Dockerfile
+    container_name: lmsilo-translate-worker
+    restart: unless-stopped
+    command: celery -A backend.workers.celery_app worker -Q translate -c 1 --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://lmsilo:lmsilo_password@postgres:5432/lmsilo
+      - REDIS_URL=redis://redis:6379/0
+      - HF_HOME=/app/huggingface
+      - HF_TOKEN=${HF_TOKEN:-}
+      - DEVICE=${DEVICE:-auto}
+    volumes:
+      - translate_uploads:/app/uploads
+      - translate_hf_cache:/app/huggingface
+    depends_on:
+      - translate
+    # Uncomment for GPU support
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+volumes:
+  postgres_data:
+    name: lmsilo_postgres_data
+  redis_data:
+    name: lmsilo_redis_data
+  locate_uploads:
+    name: lmsilo_locate_uploads
+  locate_hf_cache:
+    name: lmsilo_locate_hf_cache
+  transcribe_uploads:
+    name: lmsilo_transcribe_uploads
+  transcribe_outputs:
+    name: lmsilo_transcribe_outputs
+  transcribe_models:
+    name: lmsilo_transcribe_models
+  transcribe_hf_cache:
+    name: lmsilo_transcribe_hf_cache
+  translate_uploads:
+    name: lmsilo_translate_uploads
+  translate_hf_cache:
+    name: lmsilo_translate_hf_cache

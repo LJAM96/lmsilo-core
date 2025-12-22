@@ -1,0 +1,100 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Oatmeal theme base styles with dark mode support */
+@layer base {
+  html {
+    @apply antialiased;
+  }
+
+  body {
+    @apply bg-cream-100 text-surface-800 font-sans transition-colors duration-300;
+  }
+
+  /* Dark mode */
+  html.dark {
+    background-color: #1a1917;
+  }
+
+  html.dark body {
+    background-color: #1a1917;
+    color: #f3e5d0;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif tracking-tight;
+  }
+}
+
+@layer components {
+  /* Primary button - olive accent */
+  .btn-primary {
+    @apply px-6 py-3 bg-olive-600 text-white font-medium rounded-xl
+           hover:bg-olive-700 active:bg-olive-800
+           transition-all duration-200 ease-out
+           shadow-sm hover:shadow-medium
+           focus:outline-none focus:ring-2 focus:ring-olive-400 focus:ring-offset-2;
+  }
+
+  /* Card component */
+  .card {
+    @apply bg-white rounded-2xl shadow-soft p-6 border border-cream-200;
+  }
+
+  /* Tool card - larger interactive cards */
+  .tool-card {
+    @apply bg-white rounded-3xl shadow-soft p-8 border border-cream-200
+           transition-all duration-300 ease-out cursor-pointer
+           hover:shadow-medium hover:scale-[1.02] hover:border-olive-300;
+  }
+}
+
+/* Dark mode overrides */
+html.dark .card,
+html.dark .tool-card {
+  background-color: #262422;
+  border-color: #2d2b29;
+  box-shadow: 0 2px 15px -3px rgba(0, 0, 0, 0.4);
+}
+
+html.dark .tool-card:hover {
+  border-color: #6d7a4e;
+  box-shadow: 0 4px 25px -5px rgba(0, 0, 0, 0.5);
+}
+
+html.dark .bg-cream-100 {
+  background-color: #1a1917 !important;
+}
+
+html.dark .bg-cream-200 {
+  background-color: #262422 !important;
+}
+
+html.dark .text-surface-800 {
+  color: #f3e5d0 !important;
+}
+
+html.dark .text-surface-600 {
+  color: #c9c5c0 !important;
+}
+
+html.dark .text-surface-500 {
+  color: #a9a49d !important;
+}
+
+/* Animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out;
+}

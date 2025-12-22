@@ -1,0 +1,9 @@
+[submodule "locate"]
+	path = locate
+	url = https://github.com/LJAM96/lmsilo-locate.git
+[submodule "translate"]
+	path = translate
+	url = https://github.com/LJAM96/lmsilo-translate.git
+[submodule "transcribe"]
+	path = transcribe
+	url = https://github.com/LJAM96/lmsilo-transcribe.git
