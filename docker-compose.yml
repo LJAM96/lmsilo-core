@@ -66,6 +66,7 @@ services:
     volumes:
       - locate_uploads:/app/uploads
       - locate_hf_cache:/app/huggingface
+      - ./shared:/app/shared
     depends_on:
       postgres:
         condition: service_healthy
@@ -96,6 +97,7 @@ services:
     volumes:
       - locate_uploads:/app/uploads
       - locate_hf_cache:/app/huggingface
+      - ./shared:/app/shared
     depends_on:
       - locate
     # Uncomment for GPU support
@@ -257,6 +259,7 @@ services:
     volumes:
       - translate_uploads:/app/uploads
       - translate_hf_cache:/app/huggingface
+      - ./shared:/app/shared
     depends_on:
       postgres:
         condition: service_healthy
@@ -287,6 +290,7 @@ services:
     volumes:
       - translate_uploads:/app/uploads
       - translate_hf_cache:/app/huggingface
+      - ./shared:/app/shared
     depends_on:
       - translate
     # Uncomment for GPU support
