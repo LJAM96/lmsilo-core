@@ -1,6 +1,5 @@
 """Audit logging service."""
 
-import hashlib
 from datetime import datetime
 from typing import Optional
 from uuid import UUID
@@ -9,6 +8,16 @@ from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.models.audit import AuditLog
+
+# Try to use xxhash for performance, fallback to hashlib
+try:
+    import xxhash
+    def compute_hash(content: bytes) -> str:
+        return xxhash.xxh3_64(content).hexdigest()
+except ImportError:
+    import hashlib
+    def compute_hash(content: bytes) -> str:
+        return hashlib.sha256(content).hexdigest()
 
 
 class AuditLogger:
@@ -34,7 +43,9 @@ class AuditLogger:
         request: Optional[Request] = None,
         job_id: Optional[UUID] = None,
         file_content: Optional[bytes] = None,
+        file_hash: Optional[str] = None,
         file_name: Optional[str] = None,
+        file_size_bytes: Optional[int] = None,
         processing_time_ms: Optional[int] = None,
         model_used: Optional[str] = None,
         status: Optional[str] = None,
@@ -49,8 +60,10 @@ class AuditLogger:
             action: Action type (job_created, job_completed, etc.)
             request: FastAPI request for user identification
             job_id: Associated job ID
-            file_content: File bytes for hashing
+            file_content: File bytes for hashing (or use file_hash directly)
+            file_hash: Pre-computed file hash
             file_name: Original filename
+            file_size_bytes: File size in bytes
             processing_time_ms: Processing duration
             model_used: Model name/ID
             status: Result status (success, failed)
@@ -70,12 +83,12 @@ class AuditLogger:
             ip_address = self.get_ip_address(request)
             user_agent = request.headers.get("user-agent")
         
-        # Hash file if provided
-        file_hash = None
-        file_size = None
-        if file_content:
-            file_hash = hashlib.sha256(file_content).hexdigest()
-            file_size = len(file_content)
+        # Hash file if provided (use pre-computed hash if available)
+        computed_hash = file_hash
+        computed_size = file_size_bytes
+        if file_content and not file_hash:
+            computed_hash = compute_hash(file_content)
+            computed_size = len(file_content)
         
         # Create audit log entry
         audit = AuditLog(
@@ -86,9 +99,9 @@ class AuditLogger:
             ip_address=ip_address,
             user_agent=user_agent,
             job_id=job_id,
-            file_hash=file_hash,
+            file_hash=computed_hash,
             file_name=file_name,
-            file_size_bytes=file_size,
+            file_size_bytes=computed_size,
             processing_time_ms=processing_time_ms,
             model_used=model_used,
             status=status,
