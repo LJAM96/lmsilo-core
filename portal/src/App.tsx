@@ -1,8 +1,18 @@
 import { useState, useEffect } from 'react'
 import { MapPin, FileAudio, Languages, BookOpen, Sun, Moon } from 'lucide-react'
 
+// Declare global config type
+declare global {
+    interface Window {
+        __LMSILO_CONFIG__?: {
+            PORTAL_TICKER?: string
+        }
+    }
+}
+
 export default function App() {
     const [isDark, setIsDark] = useState(true)
+    const [ticker, setTicker] = useState('')
 
     useEffect(() => {
         // Initialize dark mode from localStorage or default to dark
@@ -10,6 +20,12 @@ export default function App() {
         const prefersDark = stored === 'dark' || (!stored && true)
         setIsDark(prefersDark)
         document.documentElement.classList.toggle('dark', prefersDark)
+
+        // Get ticker from runtime config
+        const config = window.__LMSILO_CONFIG__
+        if (config?.PORTAL_TICKER) {
+            setTicker(config.PORTAL_TICKER)
+        }
     }, [])
 
     const toggleTheme = () => {
@@ -20,7 +36,7 @@ export default function App() {
     }
 
     return (
-        <div className="min-h-screen bg-cream-100 transition-colors duration-300">
+        <div className="min-h-screen bg-cream-100 transition-colors duration-300 flex flex-col">
             {/* Header */}
             <header className="border-b border-cream-200 bg-white transition-colors duration-300">
                 <div className="max-w-6xl mx-auto px-6 py-4">
@@ -41,8 +57,22 @@ export default function App() {
                 </div>
             </header>
 
+            {/* News Ticker */}
+            {ticker && (
+                <div className="bg-olive-600 text-white overflow-hidden">
+                    <div className="ticker-container">
+                        <div className="ticker-content">
+                            <span className="ticker-text">{ticker}</span>
+                            <span className="ticker-spacer">•••</span>
+                            <span className="ticker-text">{ticker}</span>
+                            <span className="ticker-spacer">•••</span>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Main content */}
-            <main className="max-w-6xl mx-auto px-6 py-16">
+            <main className="max-w-6xl mx-auto px-6 py-16 flex-1">
                 <div className="text-center mb-16 animate-fade-in">
                     <h2 className="text-4xl font-serif text-surface-800 mb-4">
                         Local AI Suite

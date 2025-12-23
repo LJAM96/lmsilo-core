@@ -98,3 +98,36 @@ html.dark .text-surface-500 {
 .animate-fade-in {
   animation: fadeIn 0.4s ease-out;
 }
+
+/* News Ticker Animation */
+.ticker-container {
+  @apply py-2 overflow-hidden whitespace-nowrap;
+}
+
+.ticker-content {
+  display: inline-block;
+  animation: ticker-scroll 30s linear infinite;
+}
+
+.ticker-text {
+  @apply px-8 text-sm font-medium;
+}
+
+.ticker-spacer {
+  @apply px-8 text-olive-400 opacity-50;
+}
+
+@keyframes ticker-scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+/* Pause on hover */
+.ticker-container:hover .ticker-content {
+  animation-play-state: paused;
+}
+

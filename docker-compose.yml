@@ -43,6 +43,8 @@ services:
     restart: unless-stopped
     ports:
       - "80:80"
+    environment:
+      - PORTAL_TICKER=${PORTAL_TICKER:-Welcome to LMSilo - Your Local AI Suite}
     depends_on:
       - locate
       - transcribe
