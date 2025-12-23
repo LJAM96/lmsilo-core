@@ -1,0 +1,32 @@
+# LMSilo CUDA Override
+# Use with: podman-compose -f docker-compose.yml -f docker-compose.cuda.yml up -d
+
+version: "3.8"
+
+services:
+  locate:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+
+  transcribe:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+
+  translate:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
