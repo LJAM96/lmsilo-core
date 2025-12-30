@@ -1,0 +1,80 @@
+# Pre-commit hooks for LMSilo
+# Install: pip install pre-commit && pre-commit install
+
+repos:
+  # Python formatting
+  - repo: https://github.com/psf/black
+    rev: 24.4.2
+    hooks:
+      - id: black
+        language_version: python3.11
+        args: ["--line-length=100"]
+
+  # Python linting (replaces flake8, isort, pyupgrade, etc.)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.4
+    hooks:
+      - id: ruff
+        args: ["--fix", "--exit-non-zero-on-fix"]
+      - id: ruff-format
+
+  # Python type checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.0
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - types-redis
+          - types-requests
+          - pydantic
+        args: ["--ignore-missing-imports"]
+        exclude: "^(tests/|frontend/|portal/)"
+
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: ["--unsafe"] # Allow custom tags
+      - id: check-json
+      - id: check-added-large-files
+        args: ["--maxkb=1000"]
+      - id: check-merge-conflict
+      - id: detect-private-key
+
+  # TypeScript/JavaScript
+  - repo: https://github.com/pre-commit/mirrors-eslint
+    rev: v9.3.0
+    hooks:
+      - id: eslint
+        files: \.(tsx?|jsx?)$
+        types: [file]
+        additional_dependencies:
+          - eslint@9.3.0
+          - typescript@5.4.5
+          - "@typescript-eslint/parser@7.10.0"
+          - "@typescript-eslint/eslint-plugin@7.10.0"
+        exclude: "^(node_modules/|dist/|build/)"
+
+  # Docker
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.12.0
+    hooks:
+      - id: hadolint-docker
+        args: ["--ignore", "DL3008", "--ignore", "DL3013"]
+
+  # Security scanning
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.8
+    hooks:
+      - id: bandit
+        args: ["-c", "pyproject.toml", "-r", "-ll"]
+        additional_dependencies: ["bandit[toml]"]
+        exclude: "^tests/"
+
+# CI configuration
+ci:
+  autofix_prs: false
+  autoupdate_schedule: monthly

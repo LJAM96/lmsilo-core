@@ -1,7 +1,7 @@
 version: "3.8"
 
 # LMSilo - Local AI Suite
-# All-in-one containers: each service runs frontend + backend + worker
+# Unified Portal frontend + Backend-only services
 
 services:
   # Shared Infrastructure
@@ -34,7 +34,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # LMSilo Portal (Landing Page)
+  # LMSilo Portal (Unified Frontend + API Proxy)
   portal:
     build:
       context: ./portal
@@ -50,15 +50,16 @@ services:
       - transcribe
       - translate
 
-  # Locate (Image Geolocation) - All-in-One
+  # Locate (Image Geolocation) - Backend Only
   locate:
     build:
       context: ./locate
       dockerfile: Dockerfile
     container_name: lmsilo-locate
     restart: unless-stopped
-    ports:
-      - "8081:80"
+    # Internal only - accessed via Portal proxy
+    expose:
+      - "8000"
     environment:
       - DATABASE_URL=postgresql+asyncpg://lmsilo:lmsilo_password@postgres:5432/lmsilo
       - REDIS_URL=redis://redis:6379/0
@@ -84,15 +85,16 @@ services:
     #           count: 1
     #           capabilities: [gpu]
 
-    # Transcribe (Speech-to-Text) - All-in-One
+  # Transcribe (Speech-to-Text) - Backend Only
   transcribe:
     build:
       context: ./transcribe
       dockerfile: Dockerfile
     container_name: lmsilo-transcribe
     restart: unless-stopped
-    ports:
-      - "8082:80"
+    # Internal only - accessed via Portal proxy
+    expose:
+      - "8000"
     environment:
       - DATABASE_URL=postgresql+asyncpg://lmsilo:lmsilo_password@postgres:5432/lmsilo
       - REDIS_URL=redis://redis:6379/0
@@ -123,15 +125,16 @@ services:
     #           count: 1
     #           capabilities: [gpu]
 
-    # Translate (AI Translation) - All-in-One
+  # Translate (AI Translation) - Backend Only
   translate:
     build:
       context: ./translate
       dockerfile: Dockerfile
     container_name: lmsilo-translate
     restart: unless-stopped
-    ports:
-      - "8083:80"
+    # Internal only - accessed via Portal proxy
+    expose:
+      - "8000"
     environment:
       - DATABASE_URL=postgresql+asyncpg://lmsilo:lmsilo_password@postgres:5432/lmsilo
       - REDIS_URL=redis://redis:6379/0
